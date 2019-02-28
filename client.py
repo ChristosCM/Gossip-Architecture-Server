@@ -70,7 +70,6 @@ class Client(object):
                         self.front.rateNewMov(userID,title,rating)
                     else:
                         self.front.rateOlfMov(userID,movList[option-1][0],rating)
-                    
 
                 except:
                     if userID=="NO":
@@ -81,11 +80,11 @@ class Client(object):
                 #maybe add an if for editing the ratings
                 
 
-            elif: option == "n" or option == "N":
+            elif option == "n" or option == "N":
                 print ("A new userID will be created for you, so you can upload ratings")
 
             else:
-                print "Wrong input, restarting"
+                print ("Wrong input, restarting")
                 self.main()
         else:
             print ("Please input a correct option, restarting client...\n")

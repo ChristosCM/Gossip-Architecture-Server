@@ -16,6 +16,10 @@ class Server(object):
         self._besID = besID
         self._status = status
         self._name = name
+        #list that takes the changes to be applied
+        self.otherChanges = []
+        #changes of other servers that are already applied on this one
+        self.appliedChanges = []
         #changes is going to be a list of all the changes in the ratings list so that when gossiping the servers exchange information fast
         self.changes = []
         with open(self.movieFile) as file:
@@ -38,11 +42,20 @@ class Server(object):
 
     def gosRec(self):
         for server in self.rms:
-            otherChanges = server.gosSend
+            newChanges = server.gosSend()
+            for change in newChanges:
+                if change not in self.appliedChanges:
+                    self.otherChanges += change
+        sorted(self.otherChanges, key=lambda change: change[3])
 
     def gosSend(self):
         return self.changes
         
+    def applyUpdate(self):
+        for change in self.otherChanges:
+            pass
+            #if with new mov and taking the number of change
+        self.otherChanges = []
     #need a function or method to delete the changes that the other servers have already implemented in their version of the list
     def findSpecID(self,userID,movID):
         userExists = False
@@ -75,8 +88,6 @@ class Server(object):
 
 
     def findSpecTitle(self,userID,title):
-        userExists = False
-        movExists = False
         different = []
         for movie in self.movies[1:]:
             if title in movie[1]:
@@ -132,15 +143,15 @@ class Server(object):
     def rateOldMov(self,userID,movieID,rating,timestamp):
         self.gosRec()
         
-
+    
     def rateNewMov(self,userID,title,rating,timestamp):
-
         movID = self.movies[-1][0]+1
         newMov = (movID,title,"New Movie, genres coming soon")
         newRating = (userID,movID,rating,timestamp)
         self.movies.append(newMov)
-        self.rating.insert(newRating)
-        self.changes.insert(0,newMov,newRating))
+        self.ratings.insert(newRating)
+        #changes (false = movies and true = ratings, newMov)
+        self.changes.insert(0,newMov,newRating,timestamp)
         
     def update(self,userID,movieID,rating):
         #null for new user
