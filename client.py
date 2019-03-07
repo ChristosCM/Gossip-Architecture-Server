@@ -6,6 +6,7 @@ import time
 from front_end import FrontServer
 
 
+sys.excepthook = Pyro4.util.excepthook
 
 class Client(object):
     def __init__(self,name):
@@ -65,7 +66,7 @@ class Client(object):
                             option = int(option)
                         except:
                             option = len(movList+1)
-                    rating = float(input("What's your rating for the movie?"))
+                    rating = (input("What's your rating for the movie?"))
                     if option>len(movList):
                         self.front.rateNewMov(userID,title,rating)
                     else:
@@ -82,6 +83,27 @@ class Client(object):
 
             elif option == "n" or option == "N":
                 print ("A new userID will be created for you, so you can upload ratings")
+                userID = None
+                # try:
+                title = input("Enter the name of the movie you would like to rate: ")
+                movList = self.front.findMov(title)
+                option = 1
+                if len(movList)>0:
+                    print ("Please type one of the movie numbers below or type 'new' if you are referng to a new movie")
+                    for i in range (len(movList)):
+                        print (i+1,") ",movList[i][1])
+                    option = input()
+                    try:
+                        option = int(option)
+                    except:
+                        option = len(movList+1)
+                rating = (input("What's your rating for the movie?(1.0-5.0)"))
+                if option>len(movList):
+                    self.front.rateNewMov(userID,title,rating)
+                else:
+                    self.front.rateOldMov(userID,movList[option-1][0],rating)
+                # except:
+                #     print ("There was an error")
 
             else:
                 print ("Wrong input, restarting")

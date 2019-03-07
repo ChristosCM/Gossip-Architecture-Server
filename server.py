@@ -16,8 +16,11 @@ class Server(object):
         self._besID = besID
         self._status = status
         self._name = name
-        #list that takes the changes to be applied
-        self.otherChanges = []
+       
+        #the vector timestamps, each zero represents that chages to be implemented to a server replica,  
+        #always going to be equal to self.changes that holds the actual changes of the server to be sent to the others.
+        #every server has the same stamp in every position (using their ID -1 )
+        self.timestamps = [0,0,0]
         #changes of other servers that are already applied on this one
         self.appliedChanges = []
         #changes is going to be a list of all the changes in the ratings list so that when gossiping the servers exchange information fast
@@ -42,22 +45,26 @@ class Server(object):
 
     def gosRec(self):
         for server in self.rms:
-            newChanges = server.gosSend()
-            for change in newChanges:
-                if change not in self.appliedChanges:
-                    self.otherChanges += change
-        sorted(self.otherChanges, key=lambda change: change[3])
+            tup = server.gosSend()
+            time = tup[0][server.identifier-1]
+            if time > self.timestamps[server.identifier-1]:
+                otherChanges = tup[1]
+                numberChanges =  self.timestamps[server.identifier-1]
+                for i in range (0, time - numberChanges):
+                    change = otherChanges[i][1]
+                    if otherChanges[i][0][0] == 0:
+                        self.rateOldMov(0,change[0],change[1],change[2])
+                    else:
+                        self.rateNewMov(0,change[0],change[1],change[2])
+                    self.timestamps[server.identifier-1] += 1
+        
 
     def gosSend(self):
-        return self.changes
-        
-    def applyUpdate(self):
-        for change in self.otherChanges:
-            pass
-            #if with new mov and taking the number of change
-        self.otherChanges = []
+        return [self.timestamps,self.changes]
+    
     #need a function or method to delete the changes that the other servers have already implemented in their version of the list
     def findSpecID(self,userID,movID):
+        self.gosRec()
         userExists = False
         movExists = False
         for i in range (1,len(self.ratings)):
@@ -82,7 +89,7 @@ class Server(object):
     def findMovies(self,newMovie):
         movList = []
         for movie in self.movies:
-            if newMovie in movie:
+            if newMovie in movie[1]:
                 movList.append(movie) 
         return movList                
 
@@ -93,6 +100,7 @@ class Server(object):
             if title in movie[1]:
                 different.append(movie[0])
         string = ""
+        #if users ID
         if len(different)>1:
             string +="There were multiple movies found with that name:\n"
             for movieID in different:
@@ -140,26 +148,42 @@ class Server(object):
             string = "There doesn't exist a movie with that ID"
         return string
 
-    def rateOldMov(self,userID,movieID,rating,timestamp):
-        self.gosRec()
-        
+    def rateOldMov(self,update,userID,movieID,rating):
+        if update==1:
+            self.timestamps[self._besID-1] += 1
+            self.gosRec()
+        if userID == None:
+            userID == int(self.ratings[-1][0])+1
+        rating = [userID,movieID,rating]
+        self.ratings.insert(1,rating)
+        self.changes.insert(1,[[0],rating])
+        print ("done")
+   
     
-    def rateNewMov(self,userID,title,rating,timestamp):
-        movID = self.movies[-1][0]+1
-        newMov = (movID,title,"New Movie, genres coming soon")
-        newRating = (userID,movID,rating,timestamp)
+    def rateNewMov(self,update,userID,title,rating):
+        if update==1:
+            self.timestamps[self._besID-1] += 1
+            self.gosRec()        
+        if userID == None:
+            userID == int(self.ratings[-1][0])+1
+        movID = int(self.movies[-1][0])+1
+        newMov = [movID,title,"New Movie, genres coming soon"]
+        newRating = [userID,movID,rating]
         self.movies.append(newMov)
-        self.ratings.insert(newRating)
-        #changes (false = movies and true = ratings, newMov)
-        self.changes.insert(0,newMov,newRating,timestamp)
+        self.ratings.insert(1,newRating)
+        #changes (false = old movie (only rating) true = new movie (rating,mov)
+        self.changes.insert(0,[[1],newMov,newRating])
         
-    def update(self,userID,movieID,rating):
-        #null for new user
-        pass
-    
+    # def update(self,userID,movieID,rating):
+    #     if userID == None:
+    #         userID == self.ratings[-1][0]+1
+    #     rating = (userID,movieID,rating)
+    #     self.ratings.insert(0,rating)
+    #     self.changes.insert(0,(1,rating,timestamp))
 
     def maxUserID(self):
         self.maxUser = 0
+
     def setStatus(self,status):
         self._status = status
         return "Status Updated"
@@ -177,10 +201,26 @@ class Server(object):
             raise ValueError("No servers found. This might be an error or all the servers are currently offline.")
         return self.rms
         
+     #this is only called by front-end server and only written by active server
+    def writeFile(self):
+        self.gosRec()
+        with open(self.ratingsFile) as file:
+            writer = csv.writer(file)
+            writer.writerows(self.ratings)
+
+        with open(self.movieFile) as file:
+            writer = csv.writer(file)
+            writer.writerows(self.movies)
 
 if __name__ == "__main__":
-    server1 = Server("first",1,"ACTIVE")
-    server2 = Server("second",2,"OVER-LOADED")
+    temp = random.randint(1,2)
+    if temp == 1:
+        server1 = Server("first",1,"ACTIVE")
+        server2 = Server("second",2,"OVER-LOADED")
+    else:
+        server1 = Server("first",1,"OVER-LOADED")
+        server2 = Server("second",2,"ACTIVE")
+
     server3 = Server("third",3,"OFFLINE")
     with Pyro4.Daemon() as daemon:
         server1_uri = daemon.register(server1)

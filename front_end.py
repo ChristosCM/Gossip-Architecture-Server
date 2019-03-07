@@ -2,7 +2,6 @@
 import Pyro4
 import Pyro4.util
 import sys
-from server import Server
 import random
 import time
 
@@ -28,7 +27,8 @@ class FrontServer(object):
     def communicate(self):
         for server in self.servers:
             server.findRep()
-
+            if server.identifier==3:
+                server.rateOldMov(1,1000,1,3)
     @property
     def name(self):
         return self._name
@@ -52,11 +52,20 @@ class FrontServer(object):
 
     #sets the server that the clients req is going to be send based on which is active. as it is set up, default server is server1 (it will pick server1 even if the others are active)
     def setServer(self):
-        for server in self.servers:
-            if server.status == "ACTIVE":
-                active = server
-                break
-        self.activeServer = active
+        try:
+            active = False
+            while active == False:
+                for server in self.servers:
+                    if server.status == "ACTIVE":
+                        active = True
+                        self.activeServer = server
+                        break
+                if active == False:
+                    print ("There are currently no ACTIVE servers. Trying again...")
+                    self.activeServer = None
+        except:
+            self.findServers()
+            self.setServer()
         #following are functions to get the status, name and id of each of the servers. since there are 3 of them we know that they are always going to be on the same order, using these lists.
     #gets the statuses of all the back end servers
     def getStatus(self):
@@ -67,15 +76,19 @@ class FrontServer(object):
     #gets ids of all backend servers
     def getIDs(self,servers):
         self.ids = []
+        i = 0
         for server in servers:
             self.ids[i].append(server.identifier)
+            i+=1
         return self.ids
 
     #gets names of all backend servers
     def getNames(self,servers):
         self.names = []
+        i=0
         for server in servers:
             self.names[i].append(server.name)
+            i+=1
         return self.names
 
     def queryAvgID(self,movieID):
@@ -102,12 +115,13 @@ class FrontServer(object):
     def rateNewMov(self,userID,title,rating):
         self.setServer()
         timestamp = time.time()
-        self.activeServer.rateNewMov(userID,title,rating,timestamp)
+        self.activeServer.rateNewMov(userID,title,rating)
     
-    def rateOldMov(seld,userID,movieID,rating):
+    def rateOldMov(self,userID,movieID,rating):
         self.setServer()
+        print ("this")
         timestamp = time.time()
-        self.activeServer.rateOldMov(userID,movieID,rating,timestamp)
+        self.activeServer.rateOldMov(userID,movieID,rating)
 
 
 if __name__ == "__main__":
