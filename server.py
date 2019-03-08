@@ -21,8 +21,7 @@ class Server(object):
         #always going to be equal to self.changes that holds the actual changes of the server to be sent to the others.
         #every server has the same stamp in every position (using their ID -1 )
         self.timestamps = [0,0,0]
-        #changes of other servers that are already applied on this one
-        self.appliedChanges = []
+        
         #changes is going to be a list of all the changes in the ratings list so that when gossiping the servers exchange information fast
         self.changes = []
         with open(self.movieFile) as file:
@@ -50,21 +49,29 @@ class Server(object):
             if time > self.timestamps[server.identifier-1]:
                 otherChanges = tup[1]
                 numberChanges =  self.timestamps[server.identifier-1]
-                for i in range (0, time - numberChanges):
+                for i in range (time - numberChanges-1, time):
                     change = otherChanges[i][1]
                     if otherChanges[i][0][0] == 0:
                         self.rateOldMov(0,change[0],change[1],change[2])
-                    else:
+                    elif otherChanges[i][0][0] == 1:
+                        #need to change this
                         self.rateNewMov(0,change[0],change[1],change[2])
+                    elif otherChanges[i][0][0] == 2:
+                        self.deleteRating(0,change[0],change[1])
+
                     self.timestamps[server.identifier-1] += 1
         
 
     def gosSend(self):
         return [self.timestamps,self.changes]
     
+    def gosSendTimes(self):
+        return self.timestamps
+
+    def clearCache(self):
+        self.changes = []
     #need a function or method to delete the changes that the other servers have already implemented in their version of the list
     def findSpecID(self,userID,movID):
-        self.gosRec()
         userExists = False
         movExists = False
         for i in range (1,len(self.ratings)):
@@ -93,7 +100,6 @@ class Server(object):
                 movList.append(movie) 
         return movList                
 
-
     def findSpecTitle(self,userID,title):
         different = []
         for movie in self.movies[1:]:
@@ -105,6 +111,9 @@ class Server(object):
             string +="There were multiple movies found with that name:\n"
             for movieID in different:
                 string += self.findSpecID(int(userID),int(movieID))+"\n"
+        elif len(different)==1:
+            string += "There was one movie found with the given name:\n"
+            string += self.findSpecID(int(userID),int(different[0]))+"\n"
         else:
             string = "There are no movies with that title in the database :("
         return (string)
@@ -148,31 +157,52 @@ class Server(object):
             string = "There doesn't exist a movie with that ID"
         return string
 
+    def deleteRating(self,update,userID,movieID):
+        if update == 1:
+            self.timestamps[self._besID-1] += 1
+        userExists = False
+        for i in range (1,len(self.ratings)):
+            if (int(userID)==int(self.ratings[i][0])):
+                userExists = True
+                if int(movieID)==int(self.ratings[i][1]):
+                    self.ratings[i] = [0,0,0]
+                    break
+        deletion = [userID,movieID]
+        if update == 1:
+            self.changes.append([[2],deletion])
+
     def rateOldMov(self,update,userID,movieID,rating):
         if update==1:
             self.timestamps[self._besID-1] += 1
-            self.gosRec()
         if userID == None:
             userID == int(self.ratings[-1][0])+1
         rating = [userID,movieID,rating]
-        self.ratings.insert(1,rating)
-        self.changes.insert(1,[[0],rating])
-        print ("done")
+        #if update==1:
+        userExists = False
+        for i in range (1,len(self.ratings)):
+            if (int(userID)==int(self.ratings[i][0])):
+                userExists = True
+                if int(movieID)==int(self.ratings[i][1]):
+                    self.ratings[i] = rating
+                    break
+        if update==1:
+            self.changes.append([[0],rating])
    
-    
     def rateNewMov(self,update,userID,title,rating):
         if update==1:
             self.timestamps[self._besID-1] += 1
-            self.gosRec()        
         if userID == None:
             userID == int(self.ratings[-1][0])+1
         movID = int(self.movies[-1][0])+1
         newMov = [movID,title,"New Movie, genres coming soon"]
         newRating = [userID,movID,rating]
         self.movies.append(newMov)
+        #if update==1:
         self.ratings.insert(1,newRating)
         #changes (false = old movie (only rating) true = new movie (rating,mov)
-        self.changes.insert(0,[[1],newMov,newRating])
+        rating = [userID,title,rating]
+        if update==1:
+            self.changes.append([[1],rating])
         
     # def update(self,userID,movieID,rating):
     #     if userID == None:
@@ -184,8 +214,8 @@ class Server(object):
     def maxUserID(self):
         self.maxUser = 0
 
-    def setStatus(self,status):
-        self._status = status
+    def setStatus(self):
+        self._status = random.choice(['ACTIVE','OVER-LOADED','OFFLINE'])
         return "Status Updated"
 
     def findRep(self):
@@ -203,12 +233,10 @@ class Server(object):
         
      #this is only called by front-end server and only written by active server
     def writeFile(self):
-        self.gosRec()
-        with open(self.ratingsFile) as file:
+        with open(self.ratingsFile,"w") as file:
             writer = csv.writer(file)
             writer.writerows(self.ratings)
-
-        with open(self.movieFile) as file:
+        with open(self.movieFile,"w") as file:
             writer = csv.writer(file)
             writer.writerows(self.movies)
 

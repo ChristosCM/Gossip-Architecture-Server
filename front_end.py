@@ -18,26 +18,48 @@ class FrontServer(object):
     def __init__(self):
         self._name = "Front End Server"
         self.servers = self.findServers()
+        self.activeServer = None
         self.getStatus()
         self.setServer()
-        self.main()
         self.communicate()
-        
+        #possible implementation of the timestamp model in fron-end server
+        self.times=[0,0,0]
+
     #this will ensure that the Back End servers know the uri of the other 2 replicas
     def communicate(self):
         for server in self.servers:
             server.findRep()
-            if server.identifier==3:
-                server.rateOldMov(1,1000,1,3)
+        
+
+
+    def timestamps(self):
+        self.times = self.activeServer.gosSendTimes()            
+
+    def update(self):
+        #this will run if the active server is switched
+        # this will make the servers gossip and exchange changes (in this scenario only the active server will have changes) 
+        for server in self.servers:
+            server.gosRec()
+        #now all the servers have the same updates/changes so we can clear the changes list to improve performance
+        for server in self.servers:
+            server.clearCache()
+        #lastly the front end will call upon the server to write its list back on the file 
+        self.activeServer.writeFile()
+
     @property
     def name(self):
         return self._name
 
     def main(self):
+        self.getStatus()
         print ("The Servers are:")
+        string = ""
         for i in range (0,len(self.servers)):
+            string += str(i+1)+") status: " + str(self.status[i])+"\n"
             print (i+1,") status: ",self.status[i])
         print ("Now working with active server: "+str(self.activeServer.identifier))
+        string +="Now working with active server: "+str(self.activeServer.identifier)
+        return string
 
     #this function locates the back end servers
     def findServers(self):
@@ -58,14 +80,26 @@ class FrontServer(object):
                 for server in self.servers:
                     if server.status == "ACTIVE":
                         active = True
+                        try:
+                            if server != self.activeServer:
+                                self.update()
+                        except:
+                            pass
                         self.activeServer = server
                         break
                 if active == False:
                     print ("There are currently no ACTIVE servers. Trying again...")
                     self.activeServer = None
+                    self.findServers()
+                    self.change()
+                    self.setServer()
         except:
             self.findServers()
             self.setServer()
+        finally:
+            self.main()
+        
+
         #following are functions to get the status, name and id of each of the servers. since there are 3 of them we know that they are always going to be on the same order, using these lists.
     #gets the statuses of all the back end servers
     def getStatus(self):
@@ -91,11 +125,15 @@ class FrontServer(object):
             i+=1
         return self.names
 
+#function that calls the server to randomly change its status
+    def change(self):
+        for server in self.servers:
+            server.setStatus()
+        self.setServer()
     def queryAvgID(self,movieID):
         self.setServer()
         return self.activeServer.findAverageID(movieID)
         
-    
     def querySpecID(self,userID,movieID):
         self.setServer()
         return self.activeServer.findSpecID(userID,movieID)
@@ -114,14 +152,17 @@ class FrontServer(object):
 
     def rateNewMov(self,userID,title,rating):
         self.setServer()
-        timestamp = time.time()
-        self.activeServer.rateNewMov(userID,title,rating)
+        #timestamp = time.time()
+        self.activeServer.rateNewMov(1,userID,title,rating)
     
     def rateOldMov(self,userID,movieID,rating):
         self.setServer()
-        print ("this")
-        timestamp = time.time()
-        self.activeServer.rateOldMov(userID,movieID,rating)
+        #timestamp = time.time()
+        self.activeServer.rateOldMov(1,userID,movieID,rating)
+
+    def delRating(self,userID,movieID):
+        self.setServer()
+        self.activeServer.deleteRating(1,userID,movieID)
 
 
 if __name__ == "__main__":
@@ -131,3 +172,4 @@ if __name__ == "__main__":
         with Pyro4.locateNS() as ns:
             ns.register("front.server", front_uri)
         daemon.requestLoop()
+

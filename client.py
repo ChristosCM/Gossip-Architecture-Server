@@ -27,8 +27,8 @@ class Client(object):
         return frontServer
     
     def main(self):
-        
-        print ("What would you like to do?\n1) Look up ratings\n2) Submit a rating")
+        print ("***SERVERS*** \n", self.front.main(),"\n")
+        print ("What would you like to do?\n1) Look up ratings\n2) Submit a rating\n3) Delete Rating\n4) Randomize Status")
         option = input()
         if (option == "1") or (option =="look"):
             option = input("Would you like to see:\n1) Average movie rating\n2) Specific user's rating (for a specific movie)\n")
@@ -65,12 +65,14 @@ class Client(object):
                         try:
                             option = int(option)
                         except:
-                            option = len(movList+1)
+                            option = len(movList)+1
                     rating = (input("What's your rating for the movie?"))
                     if option>len(movList):
                         self.front.rateNewMov(userID,title,rating)
                     else:
-                        self.front.rateOlfMov(userID,movList[option-1][0],rating)
+                        self.front.rateOldMov(userID,movList[option-1][0],rating)
+                    print ("The update has been completed")
+                    #if not then it would be in the except area and this part would not execute
 
                 except:
                     if userID=="NO":
@@ -84,30 +86,59 @@ class Client(object):
             elif option == "n" or option == "N":
                 print ("A new userID will be created for you, so you can upload ratings")
                 userID = None
-                # try:
-                title = input("Enter the name of the movie you would like to rate: ")
-                movList = self.front.findMov(title)
-                option = 1
-                if len(movList)>0:
-                    print ("Please type one of the movie numbers below or type 'new' if you are referng to a new movie")
-                    for i in range (len(movList)):
-                        print (i+1,") ",movList[i][1])
-                    option = input()
-                    try:
-                        option = int(option)
-                    except:
-                        option = len(movList+1)
-                rating = (input("What's your rating for the movie?(1.0-5.0)"))
-                if option>len(movList):
-                    self.front.rateNewMov(userID,title,rating)
-                else:
-                    self.front.rateOldMov(userID,movList[option-1][0],rating)
-                # except:
-                #     print ("There was an error")
+                try:
+                    title = input("Enter the name of the movie you would like to rate: ")
+                    movList = self.front.findMov(title)
+                    option = 1
+                    if len(movList)>0:
+                        print ("Please type one of the movie numbers below or type 'new' if you are referng to a new movie")
+                        for i in range (len(movList)):
+                            print (i+1,") ",movList[i][1])
+                        option = input()
+                        try:
+                            option = int(option)
+                        except:
+                            option = len(movList+1)
+                    rating = 0
+                    while rating<0 or rating>5:
+                        rating = (input("What's your rating for the movie?(1.0-5.0)"))
+                    if option>len(movList):
+                        self.front.rateNewMov(userID,title,rating)
+                    else:
+                        self.front.rateOldMov(userID,movList[option-1][0],rating)
+                    print ("The item has been deleted")
+                    #if not then it would be in the except area and this part would not execute
+                except:
+                    print ("There was an error")
 
             else:
                 print ("Wrong input, restarting")
                 self.main()
+        elif option=="3" or option=="delete":
+            option = input("Please input your userID: ")
+            userID = option
+            #try:
+            userID = int(userID)
+            title = input("Enter the name of the movie you would like to delete: ")
+            movList = self.front.findMov(title)
+            option = 1
+            if len(movList)>0:
+                print ("Please type one of the movie numbers below")
+                for i in range (len(movList)):
+                    print (i+1,") ",movList[i][1])
+                option = input()
+                try:
+                    option = int(option)
+                    self.front.delRating(userID,movList[option-1][0])
+                except:
+                    pass
+            else:
+                print ("There doesn't exist a movie with that name")
+            # except:
+            #     print ("There was an error, restarting...")
+            #     self.main()
+        elif option=="4" or option=="change":
+            self.front.change()
         else:
             print ("Please input a correct option, restarting client...\n")
             time.sleep(2)
